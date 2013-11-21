@@ -9,7 +9,9 @@
 DEVICE='/dev/sr0'
 VERSION="0.1"
 ARTISTE='Nouvel_artiste'
+DEFAULT_ARTISTE='Nouvel_artiste'
 ALBUM='Nouvel_album'
+DEFAULT_ALBUM='Nouvel_album'
 RIPPER='cdda2wav'
 ENCODEUR='ffmpeg'
 EDIT_ID3='eyeD3'
@@ -34,12 +36,12 @@ ASK=0
 SEPARATEUR='/'
 #}}}
 function show_version() { #{{{
-	echo "Version: $VERSION - dervishe / Alex Keledjian <dervishe@yahoo.fr> - GPL2"
+	echo "Version: $VERSION - dervishe / Alexiandre Keledjian <dervishe@yahoo.fr> - GPL3"
 } #}}}
 function show_help() { #{{{
 	local NOM_SOFT=$(echo $0 | sed 's/.*\/\([^\/]*\)$/\1/')
 	show_version
-	echo "Usage:
+	echo "Use:
  $0 [options]
 
 Options:	(Les valeurs par défaut sont mentionnées entre des paranthèses)
@@ -105,81 +107,77 @@ Notes:
 	"
 } #}}}
 function check_rip() { #{{{
-	echo -n "[*] Recherche du ripper ${RIPPER}:"
+	echo -n "[*] Looking for the ripper ${RIPPER}: "
 	for NUTIL in $(whereis -b $RIPPER | sed 's/^[^:]*: //'); do
-	if [ -x "$NUTIL" ]; then
-	 RIPPER="$NUTIL"
-	 echo "			[OK] (${RIPPER})"
-	 return 0
-	fi
+		if [ -x "$NUTIL" ]; then
+			RIPPER="$NUTIL"
+			echo "[OK] (${RIPPER})"
+			return 0
+		fi
 	done
-	echo -e "\n${RIPPER} n'a pas été trouvé, vous pouvez le spécifier avec l'option -r."
+	echo -e "\n${RIPPER} has not been found, you can specified its location with the option -r."
 	exit -1
 } #}}}
 function check_enc() { #{{{
-	echo -n "[*] Recherche de l'encodeur ${ENCODEUR}:"
+	echo -n "[*] Looking for encoder the ${ENCODEUR}: "
 	for NUTIL in $(whereis -b $ENCODEUR | sed 's/^[^:]*: //'); do
-	if [ -x "$NUTIL" ]; then
-	 ENCODEUR="$NUTIL"
-	 echo "			[OK] (${ENCODEUR})"
-	 return 0
-	fi
+		if [ -x "$NUTIL" ]; then
+			ENCODEUR="$NUTIL"
+			echo "[OK] (${ENCODEUR})"
+			return 0
+		fi
 	done
-	echo -e "\n${ENCODEUR} n'a pas été trouvé, vous pouvez le spécifier avec l'option -e."
+	echo -e "\n${ENCODEUR} has not been found, you can specified its location with the option -e."
 	exit -1
 } #}}}
 function check_id3() { #{{{
-	echo -n "[*] Recherche de l'éditeur ID3 ${EDIT_ID3}:"
+	echo -n "[*] Looking for the ID3 editor ${EDIT_ID3}: "
 	for NUTIL in $(whereis -b $EDIT_ID3 | sed 's/^[^:]*: //'); do
 	if [ -x "$NUTIL" ]; then 
 	 EDIT_ID3="$NUTIL"
-	 echo "			[OK] (${EDIT_ID3})"
+	 echo "[OK] (${EDIT_ID3})"
 	 return 0
 	fi
 	done
-	echo -e "\n${EDIT_ID3} n'a pas été trouvé, vous pouvez le spécifier avec l'option -i."
+	echo -e "\n${EDIT_ID3} has not been found, you can specified its location with the option -i."
 	exit -1
 } #}}}
 function check_eject() { #{{{
-	echo -n "[*] Recherche de la commande d'éjection:"
+	echo -n "[*] Looking for the eject command: "
 	for NUTIL in $(whereis -b $EJECTEUR | sed 's/^[^:]*: //'); do
-	if [ -x "$NUTIL" ]; then 
-	 EJECTEUR="$NUTIL"
-	 echo "		[OK] (${EJECTEUR})"
-	 EJECTEUR="$EJECTEUR --eject --dev "
-	 return 0
-	fi
+		if [ -x "$NUTIL" ]; then 
+			EJECTEUR="$NUTIL"
+			echo "[OK] (${EJECTEUR})"
+			EJECTEUR="$EJECTEUR --eject --dev "
+			return 0
+		fi
 	done
 	# Test la solution alternative 'cdrecord'
 	for NUTIL in $(whereis -b $EJECTEUR_ALT | sed 's/^[^:]*: //'); do
-	if [ -x "$NUTIL" ]; then 
-	 EJECTEUR="$NUTIL"
-	 echo "		[OK] (${EJECTEUR})"
-	 return 0
-	fi
+		if [ -x "$NUTIL" ]; then 
+			EJECTEUR="$NUTIL"
+			echo "[OK] (${EJECTEUR})"
+			return 0
+		fi
 	done
 	EJECT=0
-	echo "			[FAIL] $EJECTEUR et $EJECTEUR_ALT n'ont pas été trouvés."
+	echo "			[FAIL] $EJECTEUR and $EJECTEUR_ALT hass not been found"
 } #}}}
 function check_connexion() { #{{{
-	echo -n "[*] Test de la connexion internet:"
+	echo -n "[*] Internet connection test: "
 	ping -c 1 -w 2 www.google.fr > /dev/null 2>&1
 	if [ $? -eq 0 ]; then
-	echo "			[OK]"
+	echo "[OK]"
 	return 1
 	fi
-	echo -ne "\n\nVotre connexion internet semble non opérationnelle.
-On peut désactiver la génération des tags id3. Vous pourrez alors 
-la refaire plus tard en exécutant: 
+	echo -ne "\n\nYour internet connection seems to be down, you can deactivate the id3 tags generation and activate it later doing:
 	cd $(pwd)
 	$0 --just-id3 -a '${ARTISTE}' -A '${ALBUM}'
-La génération des tags id3 doit-elle être désactivée (o) ou voulez-vous
-continuer avec les valeurs: '${ARTISTE}' et '${ALBUM}' (n) ou bien encore
-sortir pour spécifier certaines informations en tapant (s) ? ([o]/n/s) "
+Do you want the id3 tag generation being deactivated (o) or would you continue with the values: '${ARTISTE}' and '${ALBUM}' (n) or stoping here to specify some informations (s) ? ([o]/n/s) "
 	read REPI
 	if ! [ "$REPI" == 'n' ]; then WITH_ID3=0; fi
 	if [ "$REPI" == 's' ]; then exit 1; fi
-	echo -e "\n[*] Désactivation de la génération des tags id3:	[OK]"
+	echo -e "\n[*] id3 tags generation's deactivation: [OK]"
 } #}}}
 function check_tools() { #{{{
 	check_rip &&
@@ -189,72 +187,70 @@ function check_tools() { #{{{
 } #}}}
 function transcode() { #{{{
 	if ! [ -f ./audio.cddb ]; then
-	echo -n "[*] Lecture des données du disque: "
-	local FLAG_ID3=' -L 0'
-	if [ "$WITH_ID3" -eq 0 ]; then FLAG_ID3=' -no-infofile'; fi
-	local FLAG_PARANO=''
-	if [ "$PARANO" -eq 1 ]; then FLAG_PARANO=" -paranoia"; fi
-	if [ "$VERBEUX" -eq 1 ]; then 
-	 echo "${RIPPER}${FLAG_ID3}${FLAG_PARANO} -max -B -D $DEVICE"
-	 ${RIPPER}${FLAG_ID3}${FLAG_PARANO} -max -B -D $DEVICE
-	else
-	 ${RIPPER}${FLAG_ID3}${FLAG_PARANO} -max -B -D $DEVICE > /dev/null 2>&1
+		echo -n "[*] Reading CD data: "
+		local FLAG_ID3=' -L 0'
+		if [ "$WITH_ID3" -eq 0 ]; then FLAG_ID3=' -no-infofile'; fi
+		local FLAG_PARANO=''
+		if [ "$PARANO" -eq 1 ]; then FLAG_PARANO=" -paranoia"; fi
+		if [ "$VERBEUX" -eq 1 ]; then 
+			echo "${RIPPER}${FLAG_ID3}${FLAG_PARANO} -max -B -D $DEVICE"
+			${RIPPER}${FLAG_ID3}${FLAG_PARANO} -max -B -D $DEVICE
+		else
+			${RIPPER}${FLAG_ID3}${FLAG_PARANO} -max -B -D $DEVICE > /dev/null 2>&1
+		fi
+		echo "[OK]"
 	fi
-	echo "	[OK]"
-	fi
-	echo -n "[*] Transcodage des pistes:"
+	echo -n "[*] Transcoding tracks: "
 	for i in $(ls ./*.wav); do 
-	if [ "$VERBEUX" -eq 1 ]; then 
-	 $ENCODEUR -i $i $i.flac > /dev/null 2>&1
-	else
-	 $ENCODEUR -i $i $i.flac
-	fi
-	mv $i.flac $(echo ${i}.flac | sed "s/\.wav//") 
-	if [ "$KEEP_WFILES" -eq 0 ]; then rm $i; fi
+		if [ "$VERBEUX" -eq 1 ]; then 
+			$ENCODEUR -i $i $i.flac > /dev/null 2>&1
+		else
+			$ENCODEUR -i $i $i.flac
+		fi
+		mv $i.flac $(echo ${i}.flac | sed "s/\.wav//") 
+		if [ "$KEEP_WFILES" -eq 0 ]; then rm $i; fi
 	done
-	echo "	[OK]"
+	echo "[OK]"
 } #}}}
 function create_rep() { #{{{
 	if ! [ -d "$1" ]; then 
-	echo -n "[*] Création du répertoire:"
-	mkdir "$1" > /dev/null 2>&1 || echo -e "\n$1 n'a pû être créé. Vérifiez les permissions.";
+	echo -n "[*] Creating directory: "
+	mkdir "$1" > /dev/null 2>&1 || echo -e "\n$1 could not been created, check the permissions.";
 	if ! [ -d "$1" ]; then exit -1; fi
-	echo "	[OK] ($1)"
+	echo "[OK] ($1)"
 	fi
 } #}}}
 function create_m3u () { #{{{
-	echo -n "[*] Création du fichier:";
+	echo -n "[*] Generating m3u file: ";
 	ls ./*.flac > ./${ALBUM}.m3u
-	echo "	[OK] (${ALBUM}.m3u)";
+	echo "[OK] (${ALBUM}.m3u)";
 } #}}}
 function add_id3_tag () { #{{{
 	if [ "$ASK" -eq 1 ]; then
-		echo -ne "\n	Quel séparateur souhaitez-vous utiliser ? "
+		echo -ne "\n	Which text separator do you wish to use ? "
 		read REPONSE
 		SEPARATEUR=$REPONSE
 	fi
-	echo -n "[*] Ajout des tags m3u aux fichiers flac:"
+	echo -n "[*] Adding the m3u tags to the flac files: "
 	if [ $(file ./audio.cddb | grep 'UTF' | wc -l) -eq 0 ]; then modif_encodage ./audio.cddb; fi
 	DYEAR=$(cat ./audio.cddb | grep "DYEAR" | sed 's/.*=\(.*\)/\1/g')
 	if [ "$DYEAR" == '' ]; then DYEAR=0000; fi
 	DGENRE=$(cat ./audio.cddb | grep "DGENRE" | sed 's/.*=\(.*\)/\1/g')
 	if [ $($EDIT_ID3 -l | grep ": ${DGENRE}" | wc -l) -eq 0 ]; then 
-		echo -ne "\nLe genre est marqué comme: '$DGENRE' or il ne fait pas partie de la liste autorisée.
-Voulez-vous en fixer un ('Aucun' pour non, 'L' pour obtenir les valeurs possibles puis le nom ou le numéro correspondant au genre.) ? "
+		echo -ne "\nThe artistic genre is set to: '$DGENRE' but it is not in the allowed artistic genre. Would you want to fixe it ('None' for no, 'L' all possible values then the name or number of the corresponding artistic genre.) ? "
 		read REP
 		case $REP in
 			L ) echo -e "\n"
 				$EDIT_ID3 -l
-				echo -ne "\nGenre: "
+				echo -ne "\nArtistic genre: "
 				read REPL
 				FLAG_GENRE="$REPL" ;;
-			Aucun ) FLAG_GENRE='' ;;
+			None ) FLAG_GENRE='' ;;
 			* ) FLAG_GENRE="$REP" ;;
 		esac
 	else
 		FLAG_GENRE="$DGENRE"
 	fi
-	#exit;
 	for FICHIER in $(ls ./*.inf); do
 		if [ $(file $FICHIER | grep 'UTF' | wc -l) -eq 0 ]; then modif_encodage $FICHIER; fi
 		TITRE=$(cat $FICHIER | grep "Tracktitle" | sed  "s/.*=\s*'\(.*\)'/\1/g")
@@ -301,7 +297,7 @@ Voulez-vous en fixer un ('Aucun' pour non, 'L' pour obtenir les valeurs possible
 			if ! [ "$NF" == "${TNUM}_.flac" ]; then mv $(echo $FICHIER | sed 's/\.inf/\.flac/') ./${NF}; fi
 		fi
 	done
-	echo "	[OK]"
+	echo "[OK]"
 } #}}}
 function modif_encodage() { #{{{
 	local ENC="$(file $1 | awk '{ print $2 }')"
@@ -310,85 +306,85 @@ function modif_encodage() { #{{{
 	mv ./$1.bak ./$1
 } #}}}
 function clean_work_files() { #{{{
-	echo -n "[*] Nettoyage des fichiers de travail:"
+	echo -n "[*] Cleaning working files: "
 	if [ -d "../${ALBUM}" ] && [ $(ls ../${ALBUM} | grep -v "flac\|m3u" | wc -l) -gt 0 ]; then rm $(ls ../${ALBUM} | grep -v "flac\|m3u"); fi
-	echo "			[OK]"
+	echo "[OK]"
 } #}}}
 function guess_who() { #{{{
-	echo -n "[*] Lecture des données du disque: "
+	echo -n "[*] Reading CD data: "
 	if ! [ -d "$REP_TMP" ]; then mkdir $REP_TMP; fi
 	cd $REP_TMP
 	if [ "$JUST_ID3" -eq 0 ] && [ "$JUST_M3U" -eq 0 ]; then
-	local FLAG_BUILD="-max -B"
-	if [ "$PARANO" -eq 1 ]; then FLAG_BUILD="-paranoia $FLAG_BUILD"; fi
+		local FLAG_BUILD="-max -B"
+		if [ "$PARANO" -eq 1 ]; then FLAG_BUILD="-paranoia $FLAG_BUILD"; fi
 	else
-	local FLAG_BUILD='-J'
+		local FLAG_BUILD='-J'
 	fi
 	if [ "$VERBEUX" -eq 1 ]; then 
-	$RIPPER -L 0 $FLAG_BUILD -D $DEVICE;
+		$RIPPER -L 0 $FLAG_BUILD -D $DEVICE;
 	else
-	$RIPPER -L 0 $FLAG_BUILD -D $DEVICE > /dev/null 2>&1;
+		$RIPPER -L 0 $FLAG_BUILD -D $DEVICE > /dev/null 2>&1;
 	fi
 	echo -e "\n" > ./file.tmp; cat ./audio.cddb >> ./file.tmp; mv ./file.tmp ./audio.cddb		# Nécessaire pour l'assimilation du fichier à un fichier texte pour file
 	if [ $(file ./audio.cddb | grep 'UTF' | wc -l) -eq 0 ]; then modif_encodage ./audio.cddb; fi
 	TITRE_ALBUM=$(cat ./audio.cddb | grep DTITLE | sed 's/.*=\(.*\)/\1/');
 	local TMP1=$(normalize $(echo $TITRE_ALBUM | sed 's/\(.*\)\s*\/.*/\1/'))
 	local TMP2=$(normalize $(echo $TITRE_ALBUM | sed 's/.*\/\s*\(.*\)/\1/'))
-	if [ "$ARTISTE" == 'Nouvel_artiste' ] && ! [ "$TMP1" == '' ]; then ARTISTE="${TMP1}"; fi
-	if [ "$ALBUM" == 'Nouvel_album' ] && ! [ "$TMP2" == '' ]; then ALBUM="${TMP2}"; fi
+	if [ "$ARTISTE" == $DEFAULT_ARTISTE ] && ! [ "$TMP1" == '' ]; then ARTISTE="${TMP1}"; fi
+	if [ "$ALBUM" == $DEFAULT_ALBUM ] && ! [ "$TMP2" == '' ]; then ALBUM="${TMP2}"; fi
 	cd ..
-	echo "			[OK]"
+	echo "[OK]"
 } #}}}
 function normalize() { #{{{
 	local argument="$@"
 	if [[ "$argument" =~ "\s*([^[[:space:]]].*[^[[:space:]]])\s*" ]]; then
-	$argument=${BASH_REMATCH[1]}
+		$argument=${BASH_REMATCH[1]}
 	fi
 	argument=$(echo $argument | sed 's/\s/_/g')
 	echo $argument
 } #}}}
 function check_argument() { #{{{
 	if [ -z "$OPTARG" ]; then 
-		echo -e "\nIl manque un argument au drapeau: '-$1'\n"
-	show_help
-	exit -1
+		echo -e "\nAn argument is missing for the flag: '-$1'\n"
+		show_help
+		exit -1
 	fi
 } #}}}
 #{{{ Analyse des paramètres
 while getopts "hvA:a:d:p:-:" option; do
 	case $option in
-	h ) show_help
-	 exit 0 ;;
-	v ) show_version
-	 exit 0 ;;
-	a ) check_argument 'a'; ARTISTE=$(normalize $(echo $OPTARG)) ;;
-	A ) check_argument 'A'; ALBUM=$(normalize $(echo $OPTARG)) ;;
-	d ) check_argument 'd'; DEVICE=$OPTARG ;;
-	p ) SEPARATEUR=$OPTARG; PARSE=1 ;;
-	- ) case $OPTARG in
-		help ) show_help
+		h ) show_help
 			exit 0 ;;
-		version ) show_version
+		v ) show_version
 			exit 0 ;;
-		quiet ) VERBEUX=0 ;;
-		parano ) PARANO=1 ;;
-		name-tracks ) NAME_TRACKS=1 ;;
-		force-rep ) FORCE_REP=1 ;;
-		keep-files ) KEEP_WFILES=1 ;;
-		from-local-files ) FROM_FILES=1 ;;
-		ask-sep ) ASK=1; PARSE=1 ;;
-		just-m3u ) JUST_M3U=1; WITH_ID3=0 ;;
-		just-id3 ) JUST_ID3=1; WITH_M3U=0 ;;
-		no-m3u ) WITH_M3U=0 ;;
-		no-id3 ) WITH_ID3=0 ;;
-		itunes-compat ) WITH_ITUNES=1 ;;
-		* ) echo "Option non reconnue: ${OPTARG}"
-	  show_help
-	  exit -1 ;;
-	 esac ;;
-	? ) echo -e "\nUn des drapeaux que vous avez utilisé nécessite un argument.\n"
-	 show_help
-	 exit -1 ;;
+		a ) check_argument 'a'; ARTISTE=$(normalize $(echo $OPTARG)) ;;
+		A ) check_argument 'A'; ALBUM=$(normalize $(echo $OPTARG)) ;;
+		d ) check_argument 'd'; DEVICE=$OPTARG ;;
+		p ) SEPARATEUR=$OPTARG; PARSE=1 ;;
+		- ) case $OPTARG in
+			help ) show_help
+				exit 0 ;;
+			version ) show_version
+				exit 0 ;;
+			quiet ) VERBEUX=0 ;;
+			parano ) PARANO=1 ;;
+			name-tracks ) NAME_TRACKS=1 ;;
+			force-rep ) FORCE_REP=1 ;;
+			keep-files ) KEEP_WFILES=1 ;;
+			from-local-files ) FROM_FILES=1 ;;
+			ask-sep ) ASK=1; PARSE=1 ;;
+			just-m3u ) JUST_M3U=1; WITH_ID3=0 ;;
+			just-id3 ) JUST_ID3=1; WITH_M3U=0 ;;
+			no-m3u ) WITH_M3U=0 ;;
+			no-id3 ) WITH_ID3=0 ;;
+			itunes-compat ) WITH_ITUNES=1 ;;
+			* ) echo "Unknown option: ${OPTARG}"
+				show_help
+				exit -1 ;;
+			esac ;;
+		? ) echo -e "\nOne of the flags you use need an argument.\n"
+		show_help
+		exit -1 ;;
 	esac
 done
 #}}}
@@ -396,12 +392,12 @@ done
 #{{{ Main
 if [ "$WITH_ID3" -eq 1 ]; then check_connexion; fi
 	check_tools &&
-if [ "$FROM_FILES" -eq 0 ] && [ "$ALBUM" == 'Nouvel_album' ] || [ "$FROM_FILES" -eq 0 ] && [ "$ARTISTE" == 'Nouvel_artiste' ] && [ "$WITH_ID3" -eq 1 ] && [ "$FORCE_REP" -eq 0 ]; then
+if [ "$FROM_FILES" -eq 0 ] && [ "$ALBUM" == $DEFAULT_ALBUM ] || [ "$FROM_FILES" -eq 0 ] && [ "$ARTISTE" == $DEFAULT_ARTIST ] && [ "$WITH_ID3" -eq 1 ] && [ "$FORCE_REP" -eq 0 ]; then
 	guess_who
 else
-	if [ "$ALBUM" == 'Nouvel_album' ] && [ "$ARTISTE" == 'Nouvel_artiste' ] && [ "$FORCE_REP" -eq 0 ]; then 
-	echo -e "\nVous n'avez pas spécifié d'artiste et d'album.";
-	exit -1; 
+	if [ "$ALBUM" == $DEFAULT_ALBUM ] && [ "$ARTISTE" == $DEFAULT_ARTIST ] && [ "$FORCE_REP" -eq 0 ]; then 
+		echo -e "\nYou have not specified any artist and album.";
+		exit -1; 
 	fi
 	ARTISTE=$(normalize "$ARTISTE")
 	ALBUM=$(normalize "$ALBUM")
@@ -410,32 +406,32 @@ if [ "$JUST_ID3" -eq 0 ] && [ "$JUST_M3U" -eq 0 ]; then
 	create_rep ./$ARTISTE &&
 	create_rep ./${ARTISTE}/${ALBUM}
 	if [ -d "$REP_TMP" ]; then
-	mv ${REP_TMP}/* ./${ARTISTE}/${ALBUM}/
-	if [ "$KEEP_WFILES" -eq 0 ]; then rmdir $REP_TMP; fi
+		mv ${REP_TMP}/* ./${ARTISTE}/${ALBUM}/
+		if [ "$KEEP_WFILES" -eq 0 ]; then rmdir $REP_TMP; fi
 	fi
 	cd ./${ARTISTE}/${ALBUM} && 
 	transcode || exit -1
 else
-	 if ! [ -d "./${ARTISTE}/${ALBUM}" ]; then
-	echo -e "\nErreur de lecture de répertoire: './${ARTISTE}/${ALBUM}' n'existe pas !";
-	exit -1; 
+	if ! [ -d "./${ARTISTE}/${ALBUM}" ]; then
+		echo -e "\nError in directory reading: './${ARTISTE}/${ALBUM}' does not exists !";
+		exit -1; 
 	fi
 	if [ -d "$REP_TMP" ]; then 
-	mv ${REP_TMP}/* ./${ARTISTE}/${ALBUM}/
-	if [ "$KEEP_WFILES" -eq 0 ]; then rmdir $REP_TMP; fi
+		mv ${REP_TMP}/* ./${ARTISTE}/${ALBUM}/
+		if [ "$KEEP_WFILES" -eq 0 ]; then rmdir $REP_TMP; fi
 	fi
 	cd ./${ARTISTE}/${ALBUM}
 fi
 if [ "$WITH_ID3" -eq 1 ]; then 
 	if [ "$JUST_ID3" -eq 1 ]; then
-	if ! [ -f ./audio.cddb ]  && [ "$FROM_FILES" -eq 1 ]; then
-	 if [ "$VERBEUX" -eq 1 ]; then 
-		$RIPPER -L 0 -J -D $DEVICE;
-	 else
-		$RIPPER -L 0 -J -D $DEVICE > /dev/null 2>&1;
-	 fi
-	fi
-	if [ "$NAME_TRACKS" -eq 1 ]; then WITH_M3U=1; fi
+		if ! [ -f ./audio.cddb ]  && [ "$FROM_FILES" -eq 1 ]; then
+			if [ "$VERBEUX" -eq 1 ]; then 
+				$RIPPER -L 0 -J -D $DEVICE;
+			else
+				$RIPPER -L 0 -J -D $DEVICE > /dev/null 2>&1;
+			fi
+		fi
+		if [ "$NAME_TRACKS" -eq 1 ]; then WITH_M3U=1; fi
 	fi
 	if [ "$EJECT" -eq 1 ] && [ "$FROM_FILES" -eq 0 ]; then ${EJECTEUR} ${DEVICE} > /dev/null 2>&1; fi
 	add_id3_tag
